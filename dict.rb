@@ -191,17 +191,17 @@ class DictClient < DictBase
 
   private :check_connection
 
-  def send(text)
+  def send_command(text)
     check_connection
     @conn.write(text + EOL)
   end
 
-  private :send
+  private :send_command
 
   def connect
 
     if connected?
-      raise DictError.new(), "Attempt to connect a conencted client."
+      raise DictError.new(), 'Attempt to connect a conencted client.'
     else
 
       @conn = TCPSocket.open(host, port)
@@ -214,7 +214,7 @@ class DictClient < DictBase
       end
 
       # Now we announce ourselves to the server.
-      send("client org.davep.dict.rb $Revision: 1.9 $ <URL:http://www.davep.org/misc/dict.rb>")
+      send_command("client org.davep.dict.rb $Revision: 1.9 $ <URL:http://www.davep.org/misc/dict.rb>")
 
       unless reply_code( reply = @conn.readline() ) == RESPONSE_OK
         raise DictError.new(), "Client announcement failed \"#{reply}\""
@@ -230,7 +230,7 @@ class DictClient < DictBase
   def disconnect
 
     if connected?
-      send 'quit'
+      send_command 'quit'
       @conn.close
       @conn   = nil
       @banner = nil
@@ -247,7 +247,7 @@ class DictClient < DictBase
 
   def form_command(command, array_class, good, bad = nil)
 
-    send command
+    send_command command
 
     # Worked?
     if reply_code(reply = @conn.readline) == good
