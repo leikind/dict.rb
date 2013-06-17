@@ -18,22 +18,16 @@
 # We need sockets.
 require "socket"
 
-############################################################################
-# Dictionary error class.
+
 class DictError < RuntimeError
 end
 
-############################################################################
-# Dict utility code.
 module Dict
 
-  # Default host.
   DEFAULT_HOST = "localhost"
 
-  # Default port.
   DEFAULT_PORT = 2628
 
-  # End of line marker.
   EOL = "\r\n"
 
   # End of data marker
@@ -64,7 +58,7 @@ module Dict
   RESPONSE_NO_STRATEGIES       = 555
 
   # Get the reply code of the passed text.
-  def replyCode( text, default = nil )
+  def reply_code(text, default = nil)
 
     if text =~ /^\d{3} /
       text.to_i
@@ -76,215 +70,153 @@ module Dict
 
   end
 
-  # replyCode should be private.
-  private :replyCode
+  private :reply_code
 
 end
 
-############################################################################
-# Dict base class.
 class DictBase
-  # Mixin the Dict utility code.
   include Dict
 end
 
-############################################################################
-# Dictionary definition class.
 class DictDefinition < Array
 
-  # Mixin the Dict utility code.
   include Dict
 
-  # Constructor
-  def initialize( details, conn )
+  attr_reader :database, :name, :word
 
-    # Call to the super.
+  def initialize(details, conn)
+
     super()
 
     # Split the details out.
     details     = /^\d{3} "(.*?)"\s+(\S+)\s+"(.*)"/.match( details )
-    @word       = details[ 1 ]
-    @database   = details[ 2 ]
-    @name       = details[ 3 ]
+
+    @word       = details[1]
+    @database   = details[2]
+    @name       = details[3]
 
     # Read in the definition.
     while ( reply = conn.readline() ) != EOD
-      push( reply.chop() )
+      push reply.chop
     end
 
   end
 
-  # Access to the word
-  def word
-    @word
-  end
-
-  # Access to the database
-  def database
-    @database
-  end
-
-  # Access to the database name
-  def name
-    @name
-  end
 
   # Return an array of words you should also see in regard to this definition.
-  def seeAlso
-    join( " " ).scan( /\{(.*?)\}/ )
+  def see_also
+    join('').scan( /\{(.*?)\}/ )
   end
 
 end
 
-############################################################################
-# Dictionary definition list class.
+
 class DictDefinitionList < Array
 
-  # Mixin the Dict utility code.
   include Dict
 
-  # Constructor
-  def initialize( conn )
+  def initialize(conn)
 
-    # Call to the super.
     super()
 
     # While there's a definition to be had...
-    while replyCode( reply = conn.readline() ) == RESPONSE_DEFINITION_FOLLOWS
-      # ...add it to the list.
-      push( DictDefinition.new( reply, conn ) )
+    while reply_code( reply = conn.readline() ) == RESPONSE_DEFINITION_FOLLOWS
+      push DictDefinition.new(reply, conn)
     end
 
   end
 
 end
 
-############################################################################
-# Base dictionary array class.
+
 class DictArray < Array
 
-  # Mixin the Dict utility code.
   include Dict
 
-  # Constructor
   def initialize( conn )
 
-    # Call to the super.
     super()
 
     # While there's a match to be had...
-    while replyCode( reply = conn.readline(), 0 ) != RESPONSE_OK
+    while reply_code( reply = conn.readline(), 0 ) != RESPONSE_OK
       # ...add it to the list.
-      push( reply ) if reply != EOD
+      push reply if reply != EOD
     end
 
   end
 
 end
 
-############################################################################
 # Class for holding a dictionary item in a dictionary array.
 class DictArrayItem
 
-  # Constructor.
+  attr_reader :name, :description
+
   def initialize( text )
     match        = /^(\S+)\s+"(.*)"/.match( text )
-    @name        = match[ 1 ]
-    @description = match[ 2 ]
-  end
-
-  # Access to the name.
-  def name
-    @name
-  end
-
-  # Access to the description.
-  def description
-    @description
+    @name        = match[1]
+    @description = match[2]
   end
 
 end
 
-############################################################################
-# Dictionary item array class.
 class DictItemArray < DictArray
 
-  # Push the text as a DictArrayItem.
-  def push( text )
-    super( DictArrayItem.new( text ) )
+  def push(text)
+    super DictArrayItem.new(text)
   end
 
 end
 
-############################################################################
-# Dict client class.
 class DictClient < DictBase
 
-  # Constructor.
-  def initialize( host = DEFAULT_HOST, port = DEFAULT_PORT )
+  attr_reader :host, :port
+
+  def initialize(host = DEFAULT_HOST, port = DEFAULT_PORT)
     @host   = host
     @port   = port
     @conn   = nil
     @banner = nil
   end
 
-  # Read-only access to the host.
-  def host
-    @host
-  end
-
-  # Read-only access to the port.
-  def port
-    @port
-  end
-
-  # Are we connected?
   def connected?
     @conn != nil
   end
 
-  # Check if there's a connected, throw an error if there isn't one.
-  def checkConnection
+  def check_connection
     unless connected?
-      raise DictError.new(), "Not connected."
+      raise DictError.new(), 'Not connected.'
     end
   end
 
-  # checkConnection should be private.
-  private :checkConnection
+  private :check_connection
 
-  # Send text to the server
-  def send( text )
-    checkConnection()
-    @conn.write( text + EOL )
+  def send(text)
+    check_connection
+    @conn.write(text + EOL)
   end
 
-  # send should be private.
   private :send
 
-  # Connect to the host.
   def connect
 
-    # Are we already connected?
     if connected?
-      # Yes, throw an error.
       raise DictError.new(), "Attempt to connect a conencted client."
     else
 
-      # Nope, open a connection
-      @conn = TCPsocket.open( host, port )
+      @conn = TCPSocket.open(host, port)
 
-      # Get the banner.
-      @banner = @conn.readline()
+      @banner = @conn.readline
 
       # Valid return value?
-      unless replyCode( @banner ) == RESPONSE_CONNECTED
-        raise DictError.new(), "Connection refused \"#{@banner}\"."
+      unless reply_code(@banner) == RESPONSE_CONNECTED
+        raise DictError.new, "Connection refused \"#{@banner}\"."
       end
 
       # Now we announce ourselves to the server.
-      send( "client org.davep.dict.rb $Revision: 1.9 $ <URL:http://www.davep.org/misc/dict.rb>" )
-      unless replyCode( reply = @conn.readline() ) == RESPONSE_OK
+      send("client org.davep.dict.rb $Revision: 1.9 $ <URL:http://www.davep.org/misc/dict.rb>")
+
+      unless reply_code( reply = @conn.readline() ) == RESPONSE_OK
         raise DictError.new(), "Client announcement failed \"#{reply}\""
       end
 
@@ -295,85 +227,69 @@ class DictClient < DictBase
 
   end
 
-  # Disconnect.
   def disconnect
 
-    # Are we connected?
     if connected?
-      # Yes, close the connection
-      send( "quit" )
-      @conn.close()
+      send 'quit'
+      @conn.close
       @conn   = nil
       @banner = nil
     else
-      # No, throw an error.
       raise DictError.new(), "Attempt to disconnect a disconnected client."
     end
 
   end
 
-  # Return the banner we were handed.
   def banner
-    checkConnection()
+    check_connection
     @banner
   end
 
-  # Core code for array oriented command.
-  def arrayCommand( command, array_class, good, bad = nil )
+  def form_command(command, array_class, good, bad = nil)
 
-    # Send the command
-    send( command )
+    send command
 
     # Worked?
-    if replyCode( reply = @conn.readline() ) == good
-      # Yes, load up the array
-      array_class.new( @conn )
-    elsif bad and replyCode( reply ) == bad
+    if reply_code(reply = @conn.readline) == good
+      array_class.new(@conn)
+    elsif bad & reply_code(reply) == bad
       # "Bad" response, return an empty array
-      Array.new()
+      Array.new
     else
-      # Something else, throw an error.
+      # Something else
       raise DictError.new(), reply
     end
 
   end
 
-  # arrayCommand is private.
-  private :arrayCommand
+  private :form_command
 
-  # Define a word.
-  def define( word, database = DB_ALL )
-    arrayCommand( "define #{database} \"#{word}\"", DictDefinitionList, RESPONSE_DEFINITIONS_FOLLOW, RESPONSE_NO_MATCH )
+  def define(word, database = DB_ALL)
+    form_command("define #{database} \"#{word}\"", DictDefinitionList, RESPONSE_DEFINITIONS_FOLLOW, RESPONSE_NO_MATCH)
   end
 
-  # Match a word.
-  def match( word, strategy = MATCH_DEFAULT, database = DB_ALL )
-    arrayCommand( "match #{database} #{strategy} \"#{word}\"", DictItemArray, RESPONSE_MATCHES_FOLLOW, RESPONSE_NO_MATCH )
+  def match(word, strategy = MATCH_DEFAULT, database = DB_ALL)
+    form_command("match #{database} #{strategy} \"#{word}\"", DictItemArray, RESPONSE_MATCHES_FOLLOW, RESPONSE_NO_MATCH)
   end
 
-  # Get a list of available databases.
   def databases
-    arrayCommand( "show db", DictItemArray, RESPONSE_DATABASES_FOLLOW, RESPONSE_NO_DATABASES )
+    form_command("show db", DictItemArray, RESPONSE_DATABASES_FOLLOW, RESPONSE_NO_DATABASES)
   end
 
-  # Get a list of available strategies.
   def strategies
-    arrayCommand( "show strat", DictItemArray, RESPONSE_STRATEGIES_FOLLOW, RESPONSE_NO_STRATEGIES )
+    form_command("show strat", DictItemArray, RESPONSE_STRATEGIES_FOLLOW, RESPONSE_NO_STRATEGIES)
   end
 
-  # Get the information for a given database.
-  def info( database )
-    arrayCommand( "show info \"#{database}\"", DictArray, RESPONSE_INFO_FOLLOWS )
+  def info(database)
+    form_command("show info \"#{database}\"", DictArray, RESPONSE_INFO_FOLLOWS)
   end
 
-  # Get information about the server.
   def server
-    arrayCommand( "show server", DictArray, RESPONSE_SERVER_INFO_FOLLOWS )
+    form_command("show server", DictArray, RESPONSE_SERVER_INFO_FOLLOWS)
   end
 
-  # Get help from the server.
   def help
-    arrayCommand( "help", DictArray, RESPONSE_HELP_FOLLOWS )
+    form_command("help", DictArray, RESPONSE_HELP_FOLLOWS)
   end
 
 end
@@ -388,7 +304,7 @@ if $0 == __FILE__
   # Command result
   result = 1
 
-  # Setup the default parameters.
+  # Default parameters.
   $params = {
     :host       => ENV[ "DICT_HOST" ]  || Dict::DEFAULT_HOST,
     :port       => ENV[ "DICT_PORT" ]  || Dict::DEFAULT_PORT,
@@ -488,41 +404,40 @@ Ave, Cambridge, MA 02139, USA.
   end
 
   # Method for printing a list.
-  def printList( name, list )
-    title( "#{name} available on #{$params[ :host ]}:#{$params[ :port ]}", "=" )
+  def print_list( name, list )
+    title("#{name} available on #{$params[ :host ]}:#{$params[ :port ]}", "=")
     list.each {|item| print item.class == DictArrayItem ? "#{item.name} - #{item.description}\n" : item }
     print "\n"
   end
 
   # The need for help overrides everything else
-  if $params[ :help ]
-    printHelp()
+  if $params[:help]
+    printHelp
     result = 0
-  elsif $params[ :licence ]
+  elsif $params[:licence]
     # As does the need for the legal mumbojumbo
-    printLicence()
+    printLicence
     result = 0
   else
 
     begin
 
-      # With a dict client...
       DictClient.new( $params[ :host ], $params[ :port ] ).connect() do |dc|
 
         # User wants to see a list of databases?
-        printList( "Databases", dc.databases ) if $params[ :dbs ]
+        print_list( "Databases", dc.databases ) if $params[:dbs]
 
         # User wants to see a list of strategies?
-        printList( "Strategies", dc.strategies ) if $params[ :strats ]
+        print_list( "Strategies", dc.strategies ) if $params[:strats]
 
         # User wants to see the server help?
-        printList( "Server help", dc.help ) if $params[ :serverhelp ]
+        print_list( "Server help", dc.help ) if $params[:serverhelp]
 
         # User wants to see help on a database?
-        printList( "Info for #{$params[ :info ]}", dc.info( $params[ :info ] ) ) if $params[ :info ]
+        print_list( "Info for #{$params[ :info ]}", dc.info( $params[:info] ) ) if $params[:info]
 
         # User wants to see server information?
-        printList( "Server information", dc.server ) if $params[ :serverinfo ]
+        print_list( "Server information", dc.server ) if $params[:serverinfo]
 
         # Look up any words left on the command line.
         ARGV.each do |word|
@@ -530,10 +445,10 @@ Ave, Cambridge, MA 02139, USA.
           title( "Word: #{word}", "=" )
 
           # Did the user require a match?
-          if $params[ :match ]
+          if $params[:match]
 
             # Yes, display matches.
-            if ( matches = dc.match( word, $params[ :strategy ], $params[ :database ] ) ).empty?
+            if ( matches = dc.match( word, $params[:strategy], $params[:database] ) ).empty?
               print "No matches found\n"
             else
               matches.each {|wm| print "Database: \"#{wm.name}\" Match: \"#{wm.description}\"\n" }
@@ -542,11 +457,11 @@ Ave, Cambridge, MA 02139, USA.
           else
 
             # No, display definitions.
-            if ( defs = dc.define( word, $params[ :database ] ) ).empty?
+            if (defs = dc.define( word, $params[:database])).empty?
               print "No definitions found\n"
             else
               defs.each do |wd|
-                title( "From: #{wd.database} - #{wd.name}", "-" )
+                title("From: #{wd.database} - #{wd.name}", "-")
                 wd.each {|line| print line + "\n" }
               end
             end
@@ -555,8 +470,7 @@ Ave, Cambridge, MA 02139, USA.
 
         end
 
-        # Disconnect.
-        dc.disconnect()
+        dc.disconnect
 
       end
 
@@ -573,9 +487,6 @@ Ave, Cambridge, MA 02139, USA.
 
   end
 
-  # Return the result to the caller.
   exit result
 
 end
-
-### dict.rb ends here
