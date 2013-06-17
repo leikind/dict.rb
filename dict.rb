@@ -15,7 +15,6 @@
 ##
 ## o Add support for AUTH.
 
-# We need sockets.
 require "socket"
 
 
@@ -24,23 +23,23 @@ end
 
 module Dict
 
-  DEFAULT_HOST = "localhost"
+  DEFAULT_HOST = 'localhost'
 
   DEFAULT_PORT = 2628
 
   EOL = "\r\n"
 
   # End of data marker
-  EOD = "." + EOL
+  EOD = '.' + EOL
 
   # The special database names.
-  DB_FIRST = "!"
-  DB_ALL   = "*"
+  DB_FIRST = '!'
+  DB_ALL   = '*'
 
   # The guaranteed match strategies.
-  MATCH_DEFAULT = "."
-  MATCH_EXACT   = "exact"
-  MATCH_PREFIX  = "prefix"
+  MATCH_DEFAULT = '.'
+  MATCH_EXACT   = 'exact'
+  MATCH_PREFIX  = 'prefix'
 
   # The various response numbers.
   RESPONSE_DATABASES_FOLLOW    = 110
@@ -115,7 +114,7 @@ class DictDefinitionList < Array
 
   include Dict
 
-  def initialize(conn)
+  def initialize conn
 
     super()
 
@@ -133,7 +132,7 @@ class DictArray < Array
 
   include Dict
 
-  def initialize( conn )
+  def initialize conn
 
     super()
 
@@ -152,7 +151,7 @@ class DictArrayItem
 
   attr_reader :name, :description
 
-  def initialize( text )
+  def initialize text
     match        = /^(\S+)\s+"(.*)"/.match( text )
     @name        = match[1]
     @description = match[2]
@@ -162,7 +161,7 @@ end
 
 class DictItemArray < DictArray
 
-  def push(text)
+  def push text
     super DictArrayItem.new(text)
   end
 
@@ -191,7 +190,7 @@ class DictClient < DictBase
 
   private :check_connection
 
-  def send_command(text)
+  def send_command text
     check_connection
     @conn.write(text + EOL)
   end
@@ -280,7 +279,7 @@ class DictClient < DictBase
     form_command("show strat", DictItemArray, RESPONSE_STRATEGIES_FOLLOW, RESPONSE_NO_STRATEGIES)
   end
 
-  def info(database)
+  def info database
     form_command("show info \"#{database}\"", DictArray, RESPONSE_INFO_FOLLOWS)
   end
 
@@ -321,7 +320,7 @@ if $0 == __FILE__
   }
 
   # Print the help screen.
-  def printHelp
+  def print_help
     print "dict.rb v#{/(\d+\.\d+)/.match( '$Revision: 1.9 $' )[ 1 ]}
 Copyright 2002,2003 by Dave Pearson <davep@davep.org>
 http://www.davep.org/
@@ -356,7 +355,7 @@ Supported environment variables:
   end
 
   # Print the licence.
-  def printLicence
+  def print_licence
    print "dict.rb - RFC 2229 client for ruby.
 Copyright (C) 2002,2003 Dave Pearson <davep@davep.org>
 
@@ -394,7 +393,7 @@ Ave, Cambridge, MA 02139, USA.
                                  [ "--licence",    "-L", GetoptLong::NO_ARGUMENT       ]
                                  ).each {|name, value| $params[ name.gsub( /^--/, "" ).intern ] = value }
   rescue GetoptLong::Error
-    printHelp()
+    print_help
     exit 1
   end
 
@@ -412,11 +411,11 @@ Ave, Cambridge, MA 02139, USA.
 
   # The need for help overrides everything else
   if $params[:help]
-    printHelp
+    print_help
     result = 0
   elsif $params[:licence]
     # As does the need for the legal mumbojumbo
-    printLicence
+    print_licence
     result = 0
   else
 
