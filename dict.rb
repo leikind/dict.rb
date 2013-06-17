@@ -16,9 +16,6 @@
 ## o Add support for AUTH.
 require 'socket'
 
-class DictError < RuntimeError
-end
-
 module Dict
 
   DEFAULT_HOST = 'localhost'
@@ -54,8 +51,14 @@ module Dict
   RESPONSE_NO_DATABASES        = 554
   RESPONSE_NO_STRATEGIES       = 555
 
+  CLIENT_NAME = 'client org.davep.dict.rb $Revision: 1.9 $ <URL:http://www.davep.org/misc/dict.rb> / forked by Leikind https://github.com/leikind/dict.rb'
+
+  class DictError < RuntimeError
+  end
+
+
   # Get the reply code of the passed text.
-  def reply_code(text, default = nil)
+  def self.reply_code(text, default = nil)
 
     if text =~ /^\d{3} /
       text.to_i
@@ -67,227 +70,225 @@ module Dict
 
   end
 
-  private :reply_code
+  class BasicResponse
 
-end
-
-class DictBase
-  include Dict
-end
-
-class DictDefinition < Array
-
-  include Dict
-
-  attr_reader :database, :name, :word
-
-  def initialize(details, conn)
-
-    super()
-
-    # Split the details out.
-    details     = /^\d{3} "(.*?)"\s+(\S+)\s+"(.*)"/.match( details )
-
-    @word       = details[1]
-    @database   = details[2]
-    @name       = details[3]
-
-    # Read in the definition.
-    while (reply = conn.readline()) != EOD
-      push reply.chop
+    def initialize
+      @list = []
     end
 
-  end
-
-
-  # Return an array of words you should also see in regard to this definition.
-  def see_also
-    join('').scan( /\{(.*?)\}/ )
-  end
-
-end
-
-
-class DictDefinitionList < Array
-
-  include Dict
-
-  def initialize conn
-
-    super()
-
-    # While there's a definition to be had...
-    while reply_code( reply = conn.readline() ) == RESPONSE_DEFINITION_FOLLOWS
-      push DictDefinition.new(reply, conn)
+    def push item
+      @list.push item
     end
 
-  end
-
-end
-
-
-class DictArray < Array
-
-  include Dict
-
-  def initialize conn
-
-    super()
-
-    # While there's a match to be had...
-    while reply_code( reply = conn.readline(), 0 ) != RESPONSE_OK
-      # ...add it to the list.
-      push reply if reply != EOD
+    def each
+      @list.each{|i| yield i}
     end
 
-  end
-
-end
-
-# Class for holding a dictionary item in a dictionary array.
-class DictArrayItem
-
-  attr_reader :name, :description
-
-  def initialize text
-    match        = /^(\S+)\s+"(.*)"/.match( text )
-    @name        = match[1]
-    @description = match[2]
-  end
-
-end
-
-class DictItemArray < DictArray
-
-  def push text
-    super DictArrayItem.new(text)
-  end
-
-end
-
-class DictClient < DictBase
-
-  attr_reader :host, :port
-
-  def initialize(host = DEFAULT_HOST, port = DEFAULT_PORT)
-    @host   = host
-    @port   = port
-    @conn   = nil
-    @banner = nil
-  end
-
-  def connected?
-    @conn != nil
-  end
-
-  def check_connection
-    unless connected?
-      raise DictError.new, 'Not connected.'
+    def empty?
+      @list.empty?
     end
   end
 
-  private :check_connection
 
-  def send_command text
-    check_connection
-    @conn.write(text + EOL)
-  end
+  class DictDefinition < BasicResponse
 
-  private :send_command
+    attr_reader :database, :name, :word
 
-  def connect
+    def initialize(details, conn)
 
-    if connected?
-      raise DictError.new, 'Attempt to connect a conencted client.'
-    else
+      super()
 
-      @conn = TCPSocket.open(host, port)
+      # Split the details out.
+      details     = /^\d{3} "(.*?)"\s+(\S+)\s+"(.*)"/.match(details)
 
-      @banner = @conn.readline
+      @word       = details[1]
+      @database   = details[2]
+      @name       = details[3]
 
-      # Valid return value?
-      unless reply_code(@banner) == RESPONSE_CONNECTED
-        raise DictError.new, "Connection refused \"#{@banner}\"."
+      # Read in the definition.
+      while (reply = conn.readline()) != EOD
+        push reply.chop
       end
 
-      # Now we announce ourselves to the server.
-      send_command("client org.davep.dict.rb $Revision: 1.9 $ <URL:http://www.davep.org/misc/dict.rb>")
+    end
 
-      unless reply_code( reply = @conn.readline() ) == RESPONSE_OK
-        raise DictError.new, "Client announcement failed \"#{reply}\""
+    # Return an array of words you should also see in regard to this definition.
+    def see_also
+      join('').scan /\{(.*?)\}/
+    end
+
+  end
+
+  class DictItem
+
+    attr_reader :name, :description
+
+    def initialize text
+      match        = /^(\S+)\s+"(.*)"/.match(text)
+      @name        = match[1]
+      @description = match[2]
+    end
+
+  end
+
+
+  class DictDefinitionList < BasicResponse
+
+    def initialize conn
+
+      super()
+
+      # While there's a definition to be had...
+      while Dict.reply_code(reply = conn.readline()) == RESPONSE_DEFINITION_FOLLOWS
+        push DictDefinition.new(reply, conn)
       end
-
-      # If we were passed a block, yield to it
-      yield self if block_given?
 
     end
 
   end
 
-  def disconnect
 
-    if connected?
-      send_command 'quit'
-      @conn.close
+  class SimpleListResponse < BasicResponse
+
+    def initialize conn
+
+      super()
+
+      while Dict.reply_code(reply = conn.readline(), 0) != RESPONSE_OK
+        push reply unless reply == EOD
+      end
+    end
+
+  end
+
+  class DictItemListResponse < SimpleListResponse
+
+    def push text
+      super DictItem.new(text)
+    end
+
+  end
+
+  class DictClient
+
+    attr_reader :host, :port
+
+    def initialize(host = DEFAULT_HOST, port = DEFAULT_PORT)
+      @host, @port = host, port
       @conn   = nil
       @banner = nil
     end
 
-  end
+    def connected?
+      ! @conn.nil?
+    end
 
-  def banner
-    check_connection
-    @banner
-  end
+    def connect
 
-  def form_command(command, array_class, good, bad = nil)
+      if connected?
+        raise DictError.new, 'Attempt to connect a conencted client.'
+      else
 
-    send_command command
+        @conn = TCPSocket.open(host, port)
 
-    # Worked?
-    if reply_code(reply = @conn.readline) == good
-      array_class.new(@conn)
-    elsif bad & reply_code(reply) == bad
-      # "Bad" response, return an empty array
-      Array.new
-    else
-      # Something else
-      raise DictError.new, reply
+        @banner = @conn.readline
+
+        unless Dict.reply_code(@banner) == RESPONSE_CONNECTED
+          raise DictError.new, "Connection refused \"#{@banner}\"."
+        end
+
+        # Now we announce ourselves to the server.
+        send_command CLIENT_NAME
+
+        unless Dict.reply_code(reply = @conn.readline()) == RESPONSE_OK
+          raise DictError.new, "Client announcement failed \"#{reply}\""
+        end
+
+        if block_given?
+          yield self
+        else
+          self
+        end
+
+      end
+    end
+
+    def disconnect
+      if connected?
+        send_command 'quit'
+        @conn.close
+        @conn   = nil
+        @banner = nil
+      end
+    end
+
+    def banner
+      check_connection
+      @banner
+    end
+
+    def define(word, database = DB_ALL)
+      request_response("define #{database} \"#{word}\"", DictDefinitionList, RESPONSE_DEFINITIONS_FOLLOW, RESPONSE_NO_MATCH)
+    end
+
+    def match(word, strategy = MATCH_DEFAULT, database = DB_ALL)
+      request_response("match #{database} #{strategy} \"#{word}\"", DictItemListResponse, RESPONSE_MATCHES_FOLLOW, RESPONSE_NO_MATCH)
+    end
+
+    def databases
+      request_response("show db", DictItemListResponse, RESPONSE_DATABASES_FOLLOW, RESPONSE_NO_DATABASES)
+    end
+
+    def strategies
+      request_response("show strat", DictItemListResponse, RESPONSE_STRATEGIES_FOLLOW, RESPONSE_NO_STRATEGIES)
+    end
+
+    def info database
+      request_response("show info \"#{database}\"", SimpleListResponse, RESPONSE_INFO_FOLLOWS)
+    end
+
+    def server
+      request_response("show server", SimpleListResponse, RESPONSE_SERVER_INFO_FOLLOWS)
+    end
+
+    def help
+      request_response("help", SimpleListResponse, RESPONSE_HELP_FOLLOWS)
+    end
+
+    private
+
+    def request_response(command, response_class, good, bad = nil)
+
+      send_command command
+
+      if Dict.reply_code(reply = @conn.readline) == good
+        response_class.new(@conn)
+      elsif bad && Dict.reply_code(reply) == bad
+        # "Bad" response, return an empty array
+        Array.new
+      else
+        # Something else
+        raise DictError.new, reply
+      end
+
+    end
+
+    def check_connection
+      unless connected?
+        raise DictError.new, 'Not connected.'
+      end
+    end
+
+    def send_command command
+      check_connection
+      @conn.write command + EOL
     end
 
   end
 
-  private :form_command
-
-  def define(word, database = DB_ALL)
-    form_command("define #{database} \"#{word}\"", DictDefinitionList, RESPONSE_DEFINITIONS_FOLLOW, RESPONSE_NO_MATCH)
-  end
-
-  def match(word, strategy = MATCH_DEFAULT, database = DB_ALL)
-    form_command("match #{database} #{strategy} \"#{word}\"", DictItemArray, RESPONSE_MATCHES_FOLLOW, RESPONSE_NO_MATCH)
-  end
-
-  def databases
-    form_command("show db", DictItemArray, RESPONSE_DATABASES_FOLLOW, RESPONSE_NO_DATABASES)
-  end
-
-  def strategies
-    form_command("show strat", DictItemArray, RESPONSE_STRATEGIES_FOLLOW, RESPONSE_NO_STRATEGIES)
-  end
-
-  def info database
-    form_command("show info \"#{database}\"", DictArray, RESPONSE_INFO_FOLLOWS)
-  end
-
-  def server
-    form_command("show server", DictArray, RESPONSE_SERVER_INFO_FOLLOWS)
-  end
-
-  def help
-    form_command("help", DictArray, RESPONSE_HELP_FOLLOWS)
-  end
 
 end
+
 
 ############################################################################
 
@@ -298,10 +299,10 @@ if $0 == __FILE__
   exit_code = 1
 
   $params = {
-    host:        ENV[ "DICT_HOST" ]  || Dict::DEFAULT_HOST,
-    port:        ENV[ "DICT_PORT" ]  || Dict::DEFAULT_PORT,
-    database:    ENV[ "DICT_DB" ]    || Dict::DB_ALL,
-    strategy:    ENV[ "DICT_STRAT" ] || Dict::MATCH_DEFAULT,
+    host:        ENV['DICT_HOST']  || Dict::DEFAULT_HOST,
+    port:        ENV['DICT_PORT']  || Dict::DEFAULT_PORT,
+    database:    ENV['DICT_DB']    || Dict::DB_ALL,
+    strategy:    ENV['DICT_STRAT'] || Dict::MATCH_DEFAULT,
     match:       false,
     dbs:         false,
     strats:      false,
@@ -399,7 +400,7 @@ Ave, Cambridge, MA 02139, USA.
 
   def print_list(name, list)
     title("#{name} available on #{$params[ :host ]}:#{$params[ :port ]}", "=")
-    list.each {|item| print item.class == DictArrayItem ? "#{item.name} - #{item.description}\n" : item }
+    list.each {|item| print item.class == Dict::DictItem ? "#{item.name} - #{item.description}\n" : item }
     puts
   end
 
@@ -415,7 +416,7 @@ Ave, Cambridge, MA 02139, USA.
 
     begin
 
-      DictClient.new( $params[:host], $params[:port] ).connect() do |dc|
+      Dict::DictClient.new( $params[:host], $params[:port] ).connect() do |dc|
 
         # User wants to see a list of databases?
         print_list( "Databases", dc.databases ) if $params[:dbs]
@@ -472,7 +473,7 @@ Ave, Cambridge, MA 02139, USA.
 
     rescue SocketError => e
       print "Error connecting to server: #{e}\n"
-    rescue DictError => e
+    rescue Dict::DictError => e
       print "Server error: #{e}\n"
     rescue Errno::ECONNREFUSED => e
       print "Error connecting to server: #{e}\n"
