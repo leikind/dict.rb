@@ -216,7 +216,7 @@ class DictClient < DictBase
       send_command("client org.davep.dict.rb $Revision: 1.9 $ <URL:http://www.davep.org/misc/dict.rb>")
 
       unless reply_code( reply = @conn.readline() ) == RESPONSE_OK
-        raise DictError.new(), "Client announcement failed \"#{reply}\""
+        raise DictError.new, "Client announcement failed \"#{reply}\""
       end
 
       # If we were passed a block, yield to it
@@ -233,8 +233,6 @@ class DictClient < DictBase
       @conn.close
       @conn   = nil
       @banner = nil
-    else
-      raise DictError.new(), "Attempt to disconnect a disconnected client."
     end
 
   end
