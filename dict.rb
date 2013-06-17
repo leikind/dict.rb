@@ -14,9 +14,7 @@
 ### TODO:
 ##
 ## o Add support for AUTH.
-
-require "socket"
-
+require 'socket'
 
 class DictError < RuntimeError
 end
@@ -64,7 +62,7 @@ module Dict
     elsif default
       default
     else
-      raise DictError.new(), "Invalid reply from host \"#{text}\"."
+      raise DictError.new, "Invalid reply from host \"#{text}\"."
     end
 
   end
@@ -95,7 +93,7 @@ class DictDefinition < Array
     @name       = details[3]
 
     # Read in the definition.
-    while ( reply = conn.readline() ) != EOD
+    while (reply = conn.readline()) != EOD
       push reply.chop
     end
 
@@ -184,7 +182,7 @@ class DictClient < DictBase
 
   def check_connection
     unless connected?
-      raise DictError.new(), 'Not connected.'
+      raise DictError.new, 'Not connected.'
     end
   end
 
@@ -200,7 +198,7 @@ class DictClient < DictBase
   def connect
 
     if connected?
-      raise DictError.new(), 'Attempt to connect a conencted client.'
+      raise DictError.new, 'Attempt to connect a conencted client.'
     else
 
       @conn = TCPSocket.open(host, port)
@@ -254,7 +252,7 @@ class DictClient < DictBase
       Array.new
     else
       # Something else
-      raise DictError.new(), reply
+      raise DictError.new, reply
     end
 
   end
@@ -292,29 +290,26 @@ class DictClient < DictBase
 end
 
 ############################################################################
-# Provide a dict command.
+
 if $0 == __FILE__
 
-  # We're going to use long options.
-  require "getoptlong"
+  require 'getoptlong'
 
-  # Command result
-  result = 1
+  exit_code = 1
 
-  # Default parameters.
   $params = {
-    :host       => ENV[ "DICT_HOST" ]  || Dict::DEFAULT_HOST,
-    :port       => ENV[ "DICT_PORT" ]  || Dict::DEFAULT_PORT,
-    :database   => ENV[ "DICT_DB" ]    || Dict::DB_ALL,
-    :strategy   => ENV[ "DICT_STRAT" ] || Dict::MATCH_DEFAULT,
-    :match      => false,
-    :dbs        => false,
-    :strats     => false,
-    :serverhelp => false,
-    :info       => nil,
-    :serverinfo => false,
-    :help       => false,
-    :licence    => false
+    host:        ENV[ "DICT_HOST" ]  || Dict::DEFAULT_HOST,
+    port:        ENV[ "DICT_PORT" ]  || Dict::DEFAULT_PORT,
+    database:    ENV[ "DICT_DB" ]    || Dict::DB_ALL,
+    strategy:    ENV[ "DICT_STRAT" ] || Dict::MATCH_DEFAULT,
+    match:       false,
+    dbs:         false,
+    strats:      false,
+    serverhelp:  false,
+    info:        nil,
+    serverinfo:  false,
+    help:        false,
+    licence:     false
   }
 
   # Print the help screen.
@@ -376,50 +371,51 @@ Ave, Cambridge, MA 02139, USA.
 
   # Get the arguments from the command line.
   begin
-    GetoptLong.new().set_options(
-                                 [ "--host",       "-h", GetoptLong::REQUIRED_ARGUMENT ],
-                                 [ "--port",       "-p", GetoptLong::REQUIRED_ARGUMENT ],
-                                 [ "--database",   "-d", GetoptLong::REQUIRED_ARGUMENT ],
-                                 [ "--match",      "-m", GetoptLong::NO_ARGUMENT       ],
-                                 [ "--strategy",   "-s", GetoptLong::REQUIRED_ARGUMENT ],
-                                 [ "--dbs",        "-D", GetoptLong::NO_ARGUMENT       ],
-                                 [ "--strats",     "-S", GetoptLong::NO_ARGUMENT       ],
-                                 [ "--serverhelp", "-H", GetoptLong::NO_ARGUMENT       ],
-                                 [ "--info",       "-i", GetoptLong::REQUIRED_ARGUMENT ],
-                                 [ "--serverinfo", "-I", GetoptLong::NO_ARGUMENT       ],
-                                 [ "--help",             GetoptLong::NO_ARGUMENT       ],
-                                 [ "--licence",    "-L", GetoptLong::NO_ARGUMENT       ]
-                                 ).each {|name, value| $params[ name.gsub( /^--/, "" ).intern ] = value }
+    GetoptLong.new.set_options(
+     [ "--host",       "-h", GetoptLong::REQUIRED_ARGUMENT ],
+     [ "--port",       "-p", GetoptLong::REQUIRED_ARGUMENT ],
+     [ "--database",   "-d", GetoptLong::REQUIRED_ARGUMENT ],
+     [ "--match",      "-m", GetoptLong::NO_ARGUMENT       ],
+     [ "--strategy",   "-s", GetoptLong::REQUIRED_ARGUMENT ],
+     [ "--dbs",        "-D", GetoptLong::NO_ARGUMENT       ],
+     [ "--strats",     "-S", GetoptLong::NO_ARGUMENT       ],
+     [ "--serverhelp", "-H", GetoptLong::NO_ARGUMENT       ],
+     [ "--info",       "-i", GetoptLong::REQUIRED_ARGUMENT ],
+     [ "--serverinfo", "-I", GetoptLong::NO_ARGUMENT       ],
+     [ "--help",             GetoptLong::NO_ARGUMENT       ],
+     [ "--licence",    "-L", GetoptLong::NO_ARGUMENT       ]
+  ).each {|name, value|
+      $params[ name.gsub( /^--/, "" ).intern ] = value
+  }
+
   rescue GetoptLong::Error
     print_help
     exit 1
   end
 
-  # Method for printing titles.
-  def title( text, char )
-    print( ( char * 76 ) + "\n#{text}\n" + ( char * 76 ) + "\n"  )
+  def title(text, char)
+    print((char * 76) + "\n#{text}\n" + (char * 76) + "\n")
   end
 
-  # Method for printing a list.
-  def print_list( name, list )
+  def print_list(name, list)
     title("#{name} available on #{$params[ :host ]}:#{$params[ :port ]}", "=")
     list.each {|item| print item.class == DictArrayItem ? "#{item.name} - #{item.description}\n" : item }
-    print "\n"
+    puts
   end
 
   # The need for help overrides everything else
   if $params[:help]
     print_help
-    result = 0
+    exit_code = 0
   elsif $params[:licence]
     # As does the need for the legal mumbojumbo
     print_licence
-    result = 0
+    exit_code = 0
   else
 
     begin
 
-      DictClient.new( $params[ :host ], $params[ :port ] ).connect() do |dc|
+      DictClient.new( $params[:host], $params[:port] ).connect() do |dc|
 
         # User wants to see a list of databases?
         print_list( "Databases", dc.databases ) if $params[:dbs]
@@ -445,7 +441,7 @@ Ave, Cambridge, MA 02139, USA.
           if $params[:match]
 
             # Yes, display matches.
-            if ( matches = dc.match( word, $params[:strategy], $params[:database] ) ).empty?
+            if (matches = dc.match( word, $params[:strategy], $params[:database])).empty?
               print "No matches found\n"
             else
               matches.each {|wm| print "Database: \"#{wm.name}\" Match: \"#{wm.description}\"\n" }
@@ -472,7 +468,7 @@ Ave, Cambridge, MA 02139, USA.
       end
 
       # If we made it this far everything should have worked.
-      result = 0
+      exit_code = 0
 
     rescue SocketError => e
       print "Error connecting to server: #{e}\n"
@@ -484,6 +480,6 @@ Ave, Cambridge, MA 02139, USA.
 
   end
 
-  exit result
+  exit exit_code
 
 end
