@@ -14,14 +14,13 @@ Copyright 2013 by Yuri Leikind (modifications, refactoring, gemification, etc)
 
 Copying
 -------------------------
-dict.rb is free software distributed under the terms of the GNU General
+dict_client is free software distributed under the terms of the GNU General
 Public Licence, version 2. For details see the file COPYING.
 
 
 ## Usage
 <pre>
   $ dictd_client --help
-  dict.rb v1.9
   Copyright 2002,2003 by Dave Pearson <davep@davep.org>
   Copyright 2013 by Yuri Leikind
 

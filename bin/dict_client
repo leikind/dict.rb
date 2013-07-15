@@ -56,7 +56,7 @@ end
 
 # Print the licence.
 def print_licence
- print "dict.rb - RFC 2229 client for ruby.
+ print "dict_client - RFC 2229 client for ruby.
 Copyright (C) 2002,2003 Dave Pearson <davep@davep.org>
 Copyright 2013 by Yuri Leikind
 
