@@ -1,0 +1,192 @@
+#!/usr/bin/env ruby
+
+require 'dict_client'
+require 'getoptlong'
+
+exit_code = 1
+
+$params = {
+  host:        ENV['DICT_HOST']  || DictClient::DEFAULT_HOST,
+  port:        ENV['DICT_PORT']  || DictClient::DEFAULT_PORT,
+  database:    ENV['DICT_DB']    || DictClient::DB_ALL,
+  strategy:    ENV['DICT_STRAT'] || DictClient::MATCH_DEFAULT,
+  match:       false,
+  dbs:         false,
+  strats:      false,
+  serverhelp:  false,
+  info:        nil,
+  serverinfo:  false,
+  help:        false,
+  licence:     false
+}
+
+def print_help
+  print "dict_client
+Copyright 2002,2003 by Dave Pearson <davep@davep.org>
+Copyright 2013 by Yuri Leikind
+
+Supported command line options:
+
+-h --host <host>         Specify the host to be contacted
+                         (default is \"#{DictClient::DEFAULT_HOST}\").
+-p --port <port>         Specify the port to be connected
+                         (default is #{DictClient::DEFAULT_PORT}).
+-d --database <db>       Specity the database to be searched
+                         (default is \"#{DictClient::DB_ALL}\").
+-m --match               Perform a match instead of a define.
+-s --strategy <strat>    Specity the strategy to use for the match/define
+                         (default is \"#{DictClient::MATCH_DEFAULT}\").
+-D --dbs                 List databases available on the server.
+-S --strats              List stratagies available on the server.
+-H --serverhelp          Display the server's help.
+-i --info <db>           Display information about a database.
+-I --serverinfo          Display information about the server.
+   --help                Display this help.
+-L --licence             Display the licence for this program.
+
+Supported environment variables:
+
+DICT_HOST                Specify the host to be contacted.
+DICT_PORT                Specify the port to be connected.
+DICT_DB                  Specify the database to be searched.
+DICT_STRAT               Specify the strategy to use for the match/define.
+
+"
+end
+
+# Print the licence.
+def print_licence
+ print "dict.rb - RFC 2229 client for ruby.
+Copyright (C) 2002,2003 Dave Pearson <davep@davep.org>
+Copyright 2013 by Yuri Leikind
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2 of the License, or (at your option)
+any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+more details.
+
+You should have received a copy of the GNU General Public License along with
+this program; if not, write to the Free Software Foundation, Inc., 675 Mass
+Ave, Cambridge, MA 02139, USA.
+
+"
+end
+
+# Get the arguments from the command line.
+begin
+  GetoptLong.new.set_options(
+   [ "--host",       "-h", GetoptLong::REQUIRED_ARGUMENT ],
+   [ "--port",       "-p", GetoptLong::REQUIRED_ARGUMENT ],
+   [ "--database",   "-d", GetoptLong::REQUIRED_ARGUMENT ],
+   [ "--match",      "-m", GetoptLong::NO_ARGUMENT       ],
+   [ "--strategy",   "-s", GetoptLong::REQUIRED_ARGUMENT ],
+   [ "--dbs",        "-D", GetoptLong::NO_ARGUMENT       ],
+   [ "--strats",     "-S", GetoptLong::NO_ARGUMENT       ],
+   [ "--serverhelp", "-H", GetoptLong::NO_ARGUMENT       ],
+   [ "--info",       "-i", GetoptLong::REQUIRED_ARGUMENT ],
+   [ "--serverinfo", "-I", GetoptLong::NO_ARGUMENT       ],
+   [ "--help",             GetoptLong::NO_ARGUMENT       ],
+   [ "--licence",    "-L", GetoptLong::NO_ARGUMENT       ]
+).each {|name, value|
+    $params[ name.gsub( /^--/, "" ).intern ] = value
+}
+
+rescue GetoptLong::Error
+  print_help
+  exit 1
+end
+
+def title(text, char)
+  print((char * 76) + "\n#{text}\n" + (char * 76) + "\n")
+end
+
+def print_list(name, list)
+  title("#{name} available on #{$params[ :host ]}:#{$params[ :port ]}", "=")
+  list.each {|item| print item.class == DictClient::DictItem ? "#{item.name} - #{item.description}\n" : item }
+  puts
+end
+
+# The need for help overrides everything else
+if $params[:help]
+  print_help
+  exit_code = 0
+elsif $params[:licence]
+  # As does the need for the legal mumbojumbo
+  print_licence
+  exit_code = 0
+else
+
+  begin
+
+    DictClient::TcpClient.new( $params[:host], $params[:port] ).connect() do |dc|
+
+      # User wants to see a list of databases?
+      print_list( "Databases", dc.databases ) if $params[:dbs]
+
+      # User wants to see a list of strategies?
+      print_list( "Strategies", dc.strategies ) if $params[:strats]
+
+      # User wants to see the server help?
+      print_list( "Server help", dc.help ) if $params[:serverhelp]
+
+      # User wants to see help on a database?
+      print_list( "Info for #{$params[ :info ]}", dc.info( $params[:info] ) ) if $params[:info]
+
+      # User wants to see server information?
+      print_list( "Server information", dc.server ) if $params[:serverinfo]
+
+      # Look up any words left on the command line.
+      ARGV.each do |word|
+
+        title( "Word: #{word}", "=" )
+
+        # Did the user require a match?
+        if $params[:match]
+
+          # Yes, display matches.
+          if (matches = dc.match( word, $params[:strategy], $params[:database])).empty?
+            print "No matches found\n"
+          else
+            matches.each {|wm| print "Database: \"#{wm.name}\" Match: \"#{wm.description}\"\n" }
+          end
+
+        else
+
+          # No, display definitions.
+          if (defs = dc.define( word, $params[:database])).empty?
+            print "No definitions found\n"
+          else
+            defs.each do |wd|
+              title("From: #{wd.database} - #{wd.name}", "-")
+              wd.each {|line| print line + "\n" }
+            end
+          end
+
+        end
+
+      end
+
+      dc.disconnect
+
+    end
+
+    # If we made it this far everything should have worked.
+    exit_code = 0
+
+  rescue SocketError => e
+    print "Error connecting to server: #{e}\n"
+  rescue DictClient::DictError => e
+    print "Server error: #{e}\n"
+  rescue Errno::ECONNREFUSED => e
+    print "Error connecting to server: #{e}\n"
+  end
+
+end
+
+exit exit_code
+
