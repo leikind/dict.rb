@@ -1,22 +1,25 @@
-# dict_client  RFC 2229 client for ruby.
+RFC 2229 client for ruby.
+================================
 
 The Dictionary Server Protocol (DICT) is a TCP transaction based query/response protocol that allows a client to access dictionary
 definitions from a set of natural language dictionary databases.
 
 See RFC 2229 for details. http://tools.ietf.org/html/rfc2229
 
-## Authors
+Authors
+-------------------------
 Copyright 2002,2003 by Dave Pearson <davep@davep.org> (initial version)
+
 Copyright 2013 by Yuri Leikind (modifications, refactoring, gemification, etc)
 
-## Copying
-
+Copying
+-------------------------
 dict.rb is free software distributed under the terms of the GNU General
 Public Licence, version 2. For details see the file COPYING.
 
 
 ## Usage
-
+<pre>
   $ dictd_client --help
   dict.rb v1.9
   Copyright 2002,2003 by Dave Pearson <davep@davep.org>
@@ -47,3 +50,4 @@ Public Licence, version 2. For details see the file COPYING.
   DICT_PORT                Specify the port to be connected.
   DICT_DB                  Specify the database to be searched.
   DICT_STRAT               Specify the strategy to use for the match/define.
+</pre>
