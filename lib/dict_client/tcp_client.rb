@@ -2,12 +2,8 @@ module DictClient
 
   class TcpClient
 
-    attr_reader :host, :port
-
     def initialize(host = DEFAULT_HOST, port = DEFAULT_PORT)
       @host, @port = host, port
-      @conn   = nil
-      @banner = nil
     end
 
     def connected?
@@ -16,32 +12,27 @@ module DictClient
 
     def connect
 
-      if connected?
-        raise DictError.new, 'Attempt to connect a conencted client.'
-      else
+      @conn = tcp_open @host, @port
 
-        @conn = TCPSocket.open(host, port)
+      @banner = @conn.readline
 
-        @banner = @conn.readline
-
-        unless DictClient.reply_code(@banner) == RESPONSE_CONNECTED
-          raise DictError.new, "Connection refused \"#{@banner}\"."
-        end
-
-        # Now we announce ourselves to the server.
-        send_command CLIENT_NAME
-
-        unless DictClient.reply_code(reply = @conn.readline()) == RESPONSE_OK
-          raise DictError.new, "Client announcement failed \"#{reply}\""
-        end
-
-        if block_given?
-          yield self
-        else
-          self
-        end
-
+      unless DictClient.reply_code(@banner) == RESPONSE_CONNECTED
+        raise DictError.new, "Connection refused \"#{@banner}\"."
       end
+
+      # announce ourselves to the server.
+      send_command CLIENT_NAME
+
+      unless DictClient.reply_code(reply = @conn.readline()) == RESPONSE_OK
+        raise DictError.new, "Client announcement failed \"#{reply}\""
+      end
+
+      if block_given?
+        yield self
+      else
+        self
+      end
+
     end
 
     def disconnect
@@ -87,6 +78,10 @@ module DictClient
     end
 
     private
+
+    def tcp_open host, port
+      TCPSocket.open(host, port)
+    end
 
     def request_response(command, response_class, good, bad = nil)
 

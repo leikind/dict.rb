@@ -27,7 +27,7 @@ Public Licence, version 2. For details see the file COPYING.
   Supported command line options:
 
   -h --host <host>         Specify the host to be contacted
-                           (default is "localhost").
+                           (default is "dict.mova.org").
   -p --port <port>         Specify the port to be connected
                            (default is 2628).
   -d --database <db>       Specity the database to be searched
