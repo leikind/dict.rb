@@ -14,4 +14,7 @@ Gem::Specification.new do |s|
   s.executables   = s.files.grep(%r{^bin/}).map{ |f| File.basename(f) }
   s.test_files    = s.files.grep(%r{^(test|spec|features)/})
 
+  s.add_development_dependency 'rake'
+  s.add_development_dependency 'rspec'
+
 end

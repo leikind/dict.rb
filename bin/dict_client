@@ -57,8 +57,8 @@ end
 # Print the licence.
 def print_licence
  print "dict_client - RFC 2229 client for ruby.
-Copyright (C) 2002,2003 Dave Pearson <davep@davep.org>
-Copyright 2013 by Yuri Leikind
+Copyright © 2002,2003 Dave Pearson <davep@davep.org>
+Copyright © 2013 Yuri Leikind
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the Free
@@ -77,7 +77,6 @@ Ave, Cambridge, MA 02139, USA.
 "
 end
 
-# Get the arguments from the command line.
 begin
   GetoptLong.new.set_options(
    [ "--host",       "-h", GetoptLong::REQUIRED_ARGUMENT ],
@@ -125,30 +124,22 @@ else
 
     DictClient::TcpClient.new( $params[:host], $params[:port] ).connect() do |dc|
 
-      # User wants to see a list of databases?
       print_list( "Databases", dc.databases ) if $params[:dbs]
 
-      # User wants to see a list of strategies?
       print_list( "Strategies", dc.strategies ) if $params[:strats]
 
-      # User wants to see the server help?
       print_list( "Server help", dc.help ) if $params[:serverhelp]
 
-      # User wants to see help on a database?
       print_list( "Info for #{$params[ :info ]}", dc.info( $params[:info] ) ) if $params[:info]
 
-      # User wants to see server information?
       print_list( "Server information", dc.server ) if $params[:serverinfo]
 
-      # Look up any words left on the command line.
       ARGV.each do |word|
 
         title( "Word: #{word}", "=" )
 
-        # Did the user require a match?
         if $params[:match]
 
-          # Yes, display matches.
           if (matches = dc.match( word, $params[:strategy], $params[:database])).empty?
             print "No matches found\n"
           else
@@ -157,7 +148,6 @@ else
 
         else
 
-          # No, display definitions.
           if (defs = dc.define( word, $params[:database])).empty?
             print "No definitions found\n"
           else
@@ -175,7 +165,6 @@ else
 
     end
 
-    # If we made it this far everything should have worked.
     exit_code = 0
 
   rescue SocketError => e
