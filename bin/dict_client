@@ -6,7 +6,7 @@ require 'getoptlong'
 
 exit_code = 1
 
-$params = {
+@params = {
   host:        ENV['DICT_HOST']  || DictClient::DEFAULT_HOST,
   port:        ENV['DICT_PORT']  || DictClient::DEFAULT_PORT,
   database:    ENV['DICT_DB']    || DictClient::DB_ALL,
@@ -78,23 +78,28 @@ Ave, Cambridge, MA 02139, USA.
 "
 end
 
+no_options_given = true
+
 begin
-  GetoptLong.new.set_options(
-   [ "--host",       "-h", GetoptLong::REQUIRED_ARGUMENT ],
-   [ "--port",       "-p", GetoptLong::REQUIRED_ARGUMENT ],
-   [ "--database",   "-d", GetoptLong::REQUIRED_ARGUMENT ],
-   [ "--match",      "-m", GetoptLong::NO_ARGUMENT       ],
-   [ "--strategy",   "-s", GetoptLong::REQUIRED_ARGUMENT ],
-   [ "--dbs",        "-D", GetoptLong::NO_ARGUMENT       ],
-   [ "--strats",     "-S", GetoptLong::NO_ARGUMENT       ],
-   [ "--serverhelp", "-H", GetoptLong::NO_ARGUMENT       ],
-   [ "--info",       "-i", GetoptLong::REQUIRED_ARGUMENT ],
-   [ "--serverinfo", "-I", GetoptLong::NO_ARGUMENT       ],
-   [ "--help",             GetoptLong::NO_ARGUMENT       ],
-   [ "--licence",    "-L", GetoptLong::NO_ARGUMENT       ]
-).each {|name, value|
-    $params[ name.gsub( /^--/, "" ).intern ] = value
-}
+  opts = GetoptLong.new.set_options(
+    [ "--host",       "-h", GetoptLong::REQUIRED_ARGUMENT ],
+    [ "--port",       "-p", GetoptLong::REQUIRED_ARGUMENT ],
+    [ "--database",   "-d", GetoptLong::REQUIRED_ARGUMENT ],
+    [ "--match",      "-m", GetoptLong::NO_ARGUMENT       ],
+    [ "--strategy",   "-s", GetoptLong::REQUIRED_ARGUMENT ],
+    [ "--dbs",        "-D", GetoptLong::NO_ARGUMENT       ],
+    [ "--strats",     "-S", GetoptLong::NO_ARGUMENT       ],
+    [ "--serverhelp", "-H", GetoptLong::NO_ARGUMENT       ],
+    [ "--info",       "-i", GetoptLong::REQUIRED_ARGUMENT ],
+    [ "--serverinfo", "-I", GetoptLong::NO_ARGUMENT       ],
+    [ "--help",             GetoptLong::NO_ARGUMENT       ],
+    [ "--licence",    "-L", GetoptLong::NO_ARGUMENT       ]
+  )
+
+  opts.each {|name, value|
+    no_options_given = false
+    @params[ name.gsub( /^--/, "" ).intern ] = value
+  }
 
 rescue GetoptLong::Error
   print_help
@@ -106,16 +111,16 @@ def title(text, char)
 end
 
 def print_list(name, list)
-  title("#{name} available on #{$params[ :host ]}:#{$params[ :port ]}", "=")
+  title("#{name} available on #{@params[ :host ]}:#{@params[ :port ]}", "=")
   list.each {|item| print item.class == DictClient::DictItem ? "#{item.name} - #{item.description}\n" : item }
   puts
 end
 
 # The need for help overrides everything else
-if $params[:help] || ARGV.empty?
+if @params[:help] || (no_options_given && ARGV.empty?)
   print_help
   exit_code = 0
-elsif $params[:licence]
+elsif @params[:licence]
   # As does the need for the legal mumbojumbo
   print_licence
   exit_code = 0
@@ -123,25 +128,25 @@ else
 
   begin
 
-    DictClient::TcpClient.new( $params[:host], $params[:port] ).connect() do |dc|
+    DictClient::TcpClient.new( @params[:host], @params[:port] ).connect() do |dc|
 
-      print_list( "Databases", dc.databases ) if $params[:dbs]
+      print_list( "Databases", dc.databases ) if @params[:dbs]
 
-      print_list( "Strategies", dc.strategies ) if $params[:strats]
+      print_list( "Strategies", dc.strategies ) if @params[:strats]
 
-      print_list( "Server help", dc.help ) if $params[:serverhelp]
+      print_list( "Server help", dc.help ) if @params[:serverhelp]
 
-      print_list( "Info for #{$params[ :info ]}", dc.info( $params[:info] ) ) if $params[:info]
+      print_list( "Info for #{@params[ :info ]}", dc.info( @params[:info] ) ) if @params[:info]
 
-      print_list( "Server information", dc.server ) if $params[:serverinfo]
+      print_list( "Server information", dc.server ) if @params[:serverinfo]
 
       ARGV.each do |word|
 
         title( "Word: #{word}", "=" )
 
-        if $params[:match]
+        if @params[:match]
 
-          if (matches = dc.match( word, $params[:strategy], $params[:database])).empty?
+          if (matches = dc.match( word, @params[:strategy], @params[:database])).empty?
             print "No matches found\n"
           else
             matches.each {|wm| print "Database: \"#{wm.name}\" Match: \"#{wm.description}\"\n" }
@@ -149,7 +154,7 @@ else
 
         else
 
-          if (defs = dc.define( word, $params[:database])).empty?
+          if (defs = dc.define( word, @params[:database])).empty?
             print "No definitions found\n"
           else
             defs.each do |wd|
