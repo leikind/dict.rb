@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby
+# encoding: UTF-8
 
 require 'dict_client'
 require 'getoptlong'
@@ -111,7 +112,7 @@ def print_list(name, list)
 end
 
 # The need for help overrides everything else
-if $params[:help]
+if $params[:help] || ARGV.empty?
   print_help
   exit_code = 0
 elsif $params[:licence]

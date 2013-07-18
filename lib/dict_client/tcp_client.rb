@@ -1,3 +1,4 @@
+# encoding: UTF-8
 module DictClient
 
   class TcpClient
