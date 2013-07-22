@@ -16,12 +16,11 @@ module DictClient
   DB_FIRST = '!'
   DB_ALL   = '*'
 
-  # The guaranteed match strategies.
+  # Match strategies.
   MATCH_DEFAULT = '.'
   MATCH_EXACT   = 'exact'
   MATCH_PREFIX  = 'prefix'
 
-  # The various response numbers.
   RESPONSE_DATABASES_FOLLOW    = 110
   RESPONSE_STRATEGIES_FOLLOW   = 111
   RESPONSE_INFO_FOLLOWS        = 112
@@ -41,8 +40,6 @@ module DictClient
   class DictError < RuntimeError
   end
 
-
-  # Get the reply code of the passed text.
   def self.reply_code(text, default = nil)
 
     if text =~ /^\d{3} /
@@ -55,106 +52,8 @@ module DictClient
 
   end
 
-  class BasicResponse
-
-    def initialize
-      @list = []
-    end
-
-    def push item
-      @list.push item
-    end
-
-    def each
-      @list.each{|i| yield i}
-    end
-
-    def empty?
-      @list.empty?
-    end
-  end
-
-
-  class DictDefinition < BasicResponse
-
-    attr_reader :database, :name, :word
-
-    def initialize(details, conn)
-
-      super()
-
-      # Split the details out.
-      details     = /^\d{3} "(.*?)"\s+(\S+)\s+"(.*)"/.match(details)
-
-      @word       = details[1]
-      @database   = details[2]
-      @name       = details[3]
-
-      # Read in the definition.
-      while (reply = conn.readline()) != EOD
-        push reply.chop
-      end
-
-    end
-
-    # Return an array of words you should also see in regard to this definition.
-    def see_also
-      join('').scan /\{(.*?)\}/
-    end
-
-  end
-
-  class DictItem
-
-    attr_reader :name, :description
-
-    def initialize text
-      match        = /^(\S+)\s+"(.*)"/.match(text)
-      @name        = match[1]
-      @description = match[2]
-    end
-
-  end
-
-
-  class DictDefinitionList < BasicResponse
-
-    def initialize conn
-
-      super()
-
-      # While there's a definition to be had...
-      while DictClient.reply_code(reply = conn.readline()) == RESPONSE_DEFINITION_FOLLOWS
-        push DictDefinition.new(reply, conn)
-      end
-
-    end
-
-  end
-
-
-  class SimpleListResponse < BasicResponse
-
-    def initialize conn
-
-      super()
-
-      while DictClient.reply_code(reply = conn.readline(), 0) != RESPONSE_OK
-        push reply unless reply == EOD
-      end
-    end
-
-  end
-
-  class DictItemListResponse < SimpleListResponse
-
-    def push text
-      super DictItem.new(text)
-    end
-
-  end
-
-
 end
 
-require 'dict_client/tcp_client.rb'
+require 'dict_client/readers.rb'
+require 'dict_client/responses.rb'
+require 'dict_client/client.rb'

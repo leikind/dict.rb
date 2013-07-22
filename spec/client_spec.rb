@@ -1,11 +1,12 @@
+# encoding: UTF-8
 require 'spec_helper.rb'
 
-describe DictClient::TcpClient do
+describe DictClient::Client do
 
   let!(:dictd){}
 
   subject do
-    DictClient::TcpClient.new.tap do |client|
+    DictClient::Client.new.tap do |client|
       def client.tcp_open(h,p)
         MockedDictdServerSocket.new.tap{|m| @mock = m}
       end

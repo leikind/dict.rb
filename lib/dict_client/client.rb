@@ -1,7 +1,7 @@
 # encoding: UTF-8
 module DictClient
 
-  class TcpClient
+  class Client
 
     def initialize(host = DEFAULT_HOST, port = DEFAULT_PORT)
       @host, @port = host, port
@@ -40,8 +40,7 @@ module DictClient
       if connected?
         send_command 'quit'
         @conn.close
-        @conn   = nil
-        @banner = nil
+        @conn = nil
       end
     end
 
@@ -50,33 +49,34 @@ module DictClient
       @banner
     end
 
-    def define(word, database = DB_ALL)
-      request_response("define #{database} \"#{word}\"", DictDefinitionList, RESPONSE_DEFINITIONS_FOLLOW, RESPONSE_NO_MATCH)
-    end
-
-    def match(word, strategy = MATCH_DEFAULT, database = DB_ALL)
-      request_response("match #{database} #{strategy} \"#{word}\"", DictItemListResponse, RESPONSE_MATCHES_FOLLOW, RESPONSE_NO_MATCH)
-    end
-
     def databases
-      request_response("show db", DictItemListResponse, RESPONSE_DATABASES_FOLLOW, RESPONSE_NO_DATABASES)
+      request_response "show db", DictionariesTcpReader.new, Dictionaries
     end
 
     def strategies
-      request_response("show strat", DictItemListResponse, RESPONSE_STRATEGIES_FOLLOW, RESPONSE_NO_STRATEGIES)
-    end
-
-    def info database
-      request_response("show info \"#{database}\"", SimpleListResponse, RESPONSE_INFO_FOLLOWS)
+      request_response "show strat", StrategiesTcpReader.new, Strategies
     end
 
     def server
-      request_response("show server", SimpleListResponse, RESPONSE_SERVER_INFO_FOLLOWS)
+      request_response "show server", ServerInfoTcpReader.new, ServerInfo
     end
 
     def help
-      request_response("help", SimpleListResponse, RESPONSE_HELP_FOLLOWS)
+      request_response "help", ServerHelpTcpReader.new, ServerHelp
     end
+
+    def info database
+      request_response %!show info "#{database}"!, DictionaryInfoTcpReader.new, DictionaryInfo
+    end
+
+    def match(word, strategy = MATCH_DEFAULT, database = DB_ALL)
+      request_response %!match #{database} #{strategy} "#{word}"!, MatchTcpReader.new, WordMatch
+    end
+
+    def define(word, database = DB_ALL)
+      request_response %!define #{database} "#{word}"!, WordDefinitionsTcpReader.new, WordDefinitions
+    end
+
 
     private
 
@@ -84,21 +84,19 @@ module DictClient
       TCPSocket.open(host, port)
     end
 
-    def request_response(command, response_class, good, bad = nil)
+    def request_response(command, reader, response_class)
 
       send_command command
 
-      if DictClient.reply_code(reply = @conn.readline) == good
-        response_class.new(@conn)
-      elsif bad && DictClient.reply_code(reply) == bad
-        # "Bad" response, return an empty array
-        Array.new
+      if DictClient.reply_code(reply = @conn.readline) == reader.good_response_code
+        response_class.new(reader.read_from(@conn))
+      elsif reader.bad_response_code && DictClient.reply_code(reply) == reader.bad_response_code
+        EmptyResponse.new
       else
-        # Something else
         raise DictError.new, reply
       end
-
     end
+
 
     def check_connection
       unless connected?
@@ -108,6 +106,7 @@ module DictClient
 
     def send_command command
       check_connection
+      # STDERR.puts command
       @conn.write command + EOL
     end
 

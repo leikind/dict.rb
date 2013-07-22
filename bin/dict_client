@@ -55,7 +55,6 @@ DICT_STRAT               Specify the strategy to use for the match/define.
 "
 end
 
-# Print the licence.
 def print_licence
  print "dict_client - RFC 2229 client for ruby.
 Copyright © 2002,2003 Dave Pearson <davep@davep.org>
@@ -110,11 +109,11 @@ def title(text, char)
   print((char * 76) + "\n#{text}\n" + (char * 76) + "\n")
 end
 
-def print_list(name, list)
+def print_response(name, response)
   title("#{name} available on #{@params[ :host ]}:#{@params[ :port ]}", "=")
-  list.each {|item| print item.class == DictClient::DictItem ? "#{item.name} - #{item.description}\n" : item }
-  puts
+  puts response.to_s
 end
+
 
 # The need for help overrides everything else
 if @params[:help] || (no_options_given && ARGV.empty?)
@@ -128,41 +127,25 @@ else
 
   begin
 
-    DictClient::TcpClient.new( @params[:host], @params[:port] ).connect() do |dc|
+    DictClient::Client.new( @params[:host], @params[:port] ).connect() do |dc|
 
-      print_list( "Databases", dc.databases ) if @params[:dbs]
+      print_response "Databases", dc.databases  if @params[:dbs]
 
-      print_list( "Strategies", dc.strategies ) if @params[:strats]
+      print_response "Strategies", dc.strategies if @params[:strats]
 
-      print_list( "Server help", dc.help ) if @params[:serverhelp]
+      print_response "Server information", dc.server if @params[:serverinfo]
 
-      print_list( "Info for #{@params[ :info ]}", dc.info( @params[:info] ) ) if @params[:info]
+      print_response "Server help", dc.help if @params[:serverhelp]
 
-      print_list( "Server information", dc.server ) if @params[:serverinfo]
+      print_response "Info for #{@params[ :info ]}", dc.info(@params[:info]) if @params[:info]
 
       ARGV.each do |word|
 
-        title( "Word: #{word}", "=" )
-
         if @params[:match]
-
-          if (matches = dc.match( word, @params[:strategy], @params[:database])).empty?
-            print "No matches found\n"
-          else
-            matches.each {|wm| print "Database: \"#{wm.name}\" Match: \"#{wm.description}\"\n" }
-          end
-
+          print_response "Matches for #{word}", dc.match( word, @params[:strategy], @params[:database])
         else
-
-          if (defs = dc.define( word, @params[:database])).empty?
-            print "No definitions found\n"
-          else
-            defs.each do |wd|
-              title("From: #{wd.database} - #{wd.name}", "-")
-              wd.each {|line| print line + "\n" }
-            end
-          end
-
+          definitions = dc.define(word, @params[:database])
+          print_response "Definitions for #{word} (#{definitions.count} found)", definitions
         end
 
       end
