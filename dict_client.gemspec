@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name          = 'dict_client'
-  s.version       = '0.0.1'
+  s.version       = '0.0.2'
   s.homepage      = 'https://github.com/leikind/dict_client'
   s.date          = '2013-07-15'
   s.summary       = 'A simple client side DICT library and executable'
@@ -13,8 +13,8 @@ Gem::Specification.new do |s|
   s.files         = `git ls-files`.split($/)
   s.executables   = s.files.grep(%r{^bin/}).map{ |f| File.basename(f) }
   s.test_files    = s.files.grep(%r{^(test|spec|features)/})
+  s.license       = 'GPL'
 
   s.add_development_dependency 'rake'
   s.add_development_dependency 'rspec'
-
 end
